@@ -56,11 +56,7 @@ function process_MPD($parseSegments = false, $autoDetect = false, $detailedSegme
 
     echo("Modules:\n");
     foreach ($modules as $module) {
-        echo("\t");
-        if ($module->isEnabled()) {
-            echo("✓ ");
-        }
-        echo($module->name . "\n");
+        echo("\t" . ($module->isEnabled() ? "✓ " : "") . $module->name . "\n");
     }
 
     foreach ($modules as $module) {
