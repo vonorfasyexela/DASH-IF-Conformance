@@ -55,6 +55,7 @@ include __DIR__ . '/../Dolby/module.php';
 $argumentParser->addOption("segments", "s", "segments", "Enable segment validation");
 $argumentParser->addOption("disable_detailed_segment_output", "", "disable_detailed_segment_output", "Disable detailed segment validation output");
 $argumentParser->addOption("compact", "C", "compact", "Make JSON output compact");
+$argumentParser->addOption("oneline", "O", "oneline", "Make JSON without indentation");
 $argumentParser->addOption("silent", "S", "silent", "Do not output JSON to stdout");
 $argumentParser->addOption("autodetect", "A", "autodetect", "Try to automatically detect profiles");
 
@@ -93,6 +94,7 @@ $parseSegments = $argumentParser->getOption("segments");
 $compactOutput = $argumentParser->getOption("compact");
 $autoDetect = $argumentParser->getOption("autodetect");
 $detailedSegmentOutput = !$argumentParser->getOption("disable_detailed_segment_output");
+$oneline = $argumentParser->getOption("oneline");
 
 if (substr($mpd_url, -5) == ".m3u8") {
     processHLS();
@@ -101,7 +103,7 @@ if (substr($mpd_url, -5) == ".m3u8") {
 }
 
 if (!$argumentParser->getOption("silent")) {
-    echo($logger->asJSON($compactOutput) . "\n");
+    echo($logger->asJSON($compactOutput, $oneline) . "\n");
 }
 
 

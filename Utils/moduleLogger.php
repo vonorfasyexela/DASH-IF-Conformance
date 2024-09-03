@@ -313,10 +313,10 @@ class ModuleLogger
         }
     }
 
-    public function asJSON($compact = false)
+    public function asJSON($compact = false, $oneline = false)
     {
         if (!$compact) {
-            return \json_encode($this->asArray());
+            return \json_encode($this->asArray(), $oneline ? 0 : JSON_PRETTY_PRINT);
         }
 
         $entries = $this->entries;
@@ -338,7 +338,7 @@ class ModuleLogger
                 }
             }
         }
-        return \json_encode($this->entries);
+        return \json_encode($this->entries, $oneline ? 0 : JSON_PRETTY_PRINT);
     }
 
     public function asArray()
