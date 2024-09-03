@@ -65,8 +65,8 @@ function process_MPD($parseSegments = false, $autoDetect = false, $detailedSegme
         }
     }
 
+    fwrite(STDERR, ($parseSegments ? "DO " : "DO NOT ") . "parse segments\n");
     if (!$parseSegments) {
-        fwrite(STDERR, ($parseSegments ? "DO " : "DO NOT ") . "parse segments\n");
         return;
     }
 
