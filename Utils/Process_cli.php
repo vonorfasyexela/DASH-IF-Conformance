@@ -95,6 +95,7 @@ $compactOutput = $argumentParser->getOption("compact");
 $autoDetect = $argumentParser->getOption("autodetect");
 $detailedSegmentOutput = !$argumentParser->getOption("disable_detailed_segment_output");
 $oneline = $argumentParser->getOption("oneline");
+$silent = $argumentParser->getOption("silent");
 
 if (substr($mpd_url, -5) == ".m3u8") {
     processHLS();
@@ -102,7 +103,7 @@ if (substr($mpd_url, -5) == ".m3u8") {
     process_MPD($parseSegments, $autoDetect, $detailedSegmentOutput);
 }
 
-if (!$argumentParser->getOption("silent")) {
+if (!$silent) {
     echo($logger->asJSON($compactOutput, $oneline) . "\n");
 }
 
