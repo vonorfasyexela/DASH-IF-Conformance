@@ -41,12 +41,25 @@ class MPDHandler
         $this->schematronOutput = null;
         $this->schematronIssuesReport = null;
 
+        echo("\tLoad URL...\n");
         $this->load();
+        echo("\tURL loaded\n");
         if ($this->mpd){
+            echo("\tExtracting features...\n");
             $this->features = $this->recursiveExtractFeatures($this->dom);
+            echo("\tFeatures extracted\n");
+
+            echo("\tExtracting profiles...\n");
             $this->extractProfiles();
+            echo("\tProfiles extracted\n");
+
+            echo("\tRunning Schematron...\n");
             $this->runSchematron();
+            echo("\tSchematron finished\n");
+
+            echo("\tValidate Schematron...\n");
             $this->validateSchematron();
+            echo("\tSchematron validation done\n");
         }
     }
 

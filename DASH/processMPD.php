@@ -35,7 +35,9 @@ function process_MPD($parseSegments = false, $autoDetect = false, $detailedSegme
     ## If only MPD validation is requested or inferred, stop
     ## If any error is found in the MPD validation process, stop
     ## If no error is found, then proceed with segment validation below
+    echo("Creating MPD Handler...\n");
     $mpdHandler = new DASHIF\MPDHandler($mpd_url);
+    echo("MPD Handler created\n");  
 
     if ($mpdHandler->getDOM() == null) {
         fwrite(STDERR, "Unable to parse mpd @ $mpd_url\n");
