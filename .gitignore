@@ -16,4 +16,6 @@ functional-tests/hbbtv/sources
 Utils/sessions
 unit-test-results
 ISOSegmentValidator/public/linux/obj
+ISOSegmentValidator/public/linux/bin
+ISOSegmentValidator/public/linux/dependencies
 external/*
