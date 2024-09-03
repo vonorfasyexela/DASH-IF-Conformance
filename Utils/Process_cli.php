@@ -104,6 +104,7 @@ if (substr($mpd_url, -5) == ".m3u8") {
 }
 
 if (!$silent) {
+    echo("JSON with results:\n");
     echo($logger->asJSON($compactOutput, $oneline) . "\n");
 }
 
