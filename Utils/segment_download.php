@@ -42,18 +42,23 @@ function download_data($directory, $array_file, $is_subtitle_rep, $is_dolby)
            $hls_byte_range_begin, $hls_byte_range_size, $hls_manifest, $availability_times, $modules;
 
 
+    echo("Requested URLs: ". var_export($array_file) . "\n");
+
     //create text file containing the original size of Mdat box that is ignored
     $sizefile = fopen($session->getSelectedRepresentationDir() . '/mdatoffset', 'a+b');
 
     $segment_count = sizeof($array_file);
     $initoffset = 0; // Set pointer to 0
     $mdat_index = 0;
-    $totaldownloaded = 0; // bytes downloaded
-    $totalDataDownloaded = 0;
-    $totalDataProcessed = 0; // bytes processed within segments
+    // Это по идее не нужно.
+    // $totaldownloaded = 0; // bytes downloaded
+    // Эти две переменные по ходу не нужны.
+    // $totalDataDownloaded = 0;
+    // $totalDataProcessed = 0; // bytes processed within segments
     $downloadMdat = 0;
     $downloadAll = $is_dolby;
-    $byte_range_array = array();
+    // Этот массив по ходу не нужен.
+    // $byte_range_array = array();
     $ch = curl_init();
 
     foreach ($modules as $module) {
@@ -68,14 +73,27 @@ function download_data($directory, $array_file, $is_subtitle_rep, $is_dolby)
         }
     }
 
+    echo("\t\t\t\t\t\tThis representation has " . $segment_count . " segments\n");
     # Iterate over $array_file
     for ($index = 0; $index < $segment_count; $index++) {
+        
+        echo("\t\t\t\t\t\t\tChecking segment " . $index . "\n");
+
+        
         $filePath = $array_file[$index];
+
+        echo("\t\t\t\t\t\t\t\tfilePath: " . $filePath . "\n");
         $filename = basename($filePath);
+        echo("\t\t\t\t\t\t\t\tfilename: " . $filename . "\n");
+
+
         $file_information = remote_file_size($filePath);
         $file_exists = $file_information[0];
         $file_size = ($hls_manifest && $hls_byte_range_size) ?
           $hls_byte_range_size[$index] + $hls_byte_range_begin[$index] : $file_information[1];
+
+        echo("\t\t\t\t\t\t\t\tfile_exists: " . $file_exists . "\n");
+        echo("\t\t\t\t\t\t\t\tfile_size:   " . $file_size . " bytes\n");
 
         if (!$file_exists) {
             $missing = (!$hls_manifest) ?
@@ -85,7 +103,9 @@ function download_data($directory, $array_file, $is_subtitle_rep, $is_dolby)
             continue;
         }
 
-        if ($file_size == 0) {
+        // if ($file_size == 0) {
+        // Временно поставил это условие как основное, чтобы качался сразу весь файл.
+        if (true) {
             //download all
             $content = partial_download($filePath, $ch);
             if (!$content) {
@@ -112,7 +132,10 @@ function download_data($directory, $array_file, $is_subtitle_rep, $is_dolby)
                             $byte_array[$location + 2] * 256 +
                             $byte_array[$location + 3];
                 $box_name = substr($content, $location + 3, 4);
+                echo("\t\t\t\t\t\t\t\tBox name: " . $box_name . "\n");
+                echo("\t\t\t\t\t\t\t\tBox size: " . $box_size . "\n");
                 if ($downloadAll || $box_name != 'mdat') {
+                    // Пока тип бокса - не mdat, складываем боксы в наш файл.
                     fwrite($newfile, substr($content, $location - 1, $box_size));
                 } else {
                     # If it is mdat box
@@ -121,6 +144,9 @@ function download_data($directory, $array_file, $is_subtitle_rep, $is_dolby)
                     # Else
                     #   Add the original size of the mdat to text file without the name and size bytes(8 bytes)
                     #   Copy only the mdat name and size to the segment
+
+                    // Здесь идёт проверка значения переменной $downloadMdat.
+                    // Эта переменная всегда 0.
                     if ($downloadMdat) {
                         fwrite($sizefile, ($initoffset + $sizepos + 8) . " " . 0 . "\n");
                         fwrite($newfile, substr($content, $location - 1, 8));
@@ -157,40 +183,77 @@ function download_data($directory, $array_file, $is_subtitle_rep, $is_dolby)
                 $sizepos = $sizepos + $box_size;
                 $location = $location + $box_size;
                 $file_size = $file_size + $box_size;
-                $totalDataDownloaded = $totalDataDownloaded + $box_size;
-                $percent = (int) (100 * $index / (sizeof($array_file) - 1));
+
+                // По идее это не нужно.
+                // $totalDataDownloaded = $totalDataDownloaded + $box_size;
+                // $percent = (int) (100 * $index / (sizeof($array_file) - 1));
             }
 
             # Modify node and sav it to a progress report
         } else {
             $sizepos = $sizepos = ($hls_byte_range_begin) ? $hls_byte_range_begin[$index] : 0;
             $remaining = $file_size - $sizepos;
+
+            echo("\t\t\t\t\t\t\t\tsizepos:     " . $sizepos . "\n");
+            echo("\t\t\t\t\t\t\t\tremaining:   " . $remaining . "\n");
+
             while ($sizepos < $file_size) {
+                // Равен 1 потому, что у нас возвращается ассоциативный массив (его индексы начинаются с 1).
                 $location = 1; // temporary pointer
                 $name = null; // box name
                 $box_size = 0; // box size
 
                 // create an empty mp4 file to contain data needed from remote segment
+                // Создаем новый файл, в который будем сохранять скачанное содержимое.
                 $newfile = fopen($directory . "/" . $filename, 'a+b');
 
                 # Download the partial content and unpack
+                // Здесь мы запрашиваем загрузку файла от 0-го байта до 1500-го.
+                // Сервер легко может проигнорировать это требование и отдать файл целиком (что обычно и происходит).
+                // А ещё момент, что границы скачивания входят в интервал, т.е. если запросить 0-1500, то будет файл размером 1501 байт.
+        
+                // То есть можно сказать, что эта функция скачивает либо весь файл целиком (если сервер не поддерживает RANGE),
+                // либо 1501 байт файла.
+                // Пример, где сервер НЕ поддерживает RANGE: "http://192.168.189.30/mdrm/2023_57_sekund_ottcontentasset/hd_1b23cda4_v1/manifest.mpd?debug=3"
+                // Пример, где сервер    поддерживает RANGE: "https://bitmovin-a.akamaihd.net/content/MI201109210084_1/mpds/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.mpd"
+                echo("\t\t\t\t\t\t\t\tDownloading segment...\n");
                 $content = partial_download($filePath, $ch, $sizepos, $sizepos + 1500);
+
+                echo("\t\t\t\t\t\t\t\tLength of binary string: " . strlen($content) . "\n");
+
+                // Вот тут и зарыта самая главная собака. Эта функция возвращает АССОЦИАТИВНЫЙ массив.
+                // Его индексы начинаются с 1-цы. Поэтому $location по умолчанию равно 1.
                 $byte_array = unpack('C*', $content);
-                $byte_range_array = array_merge($byte_range_array, $byte_array);
+                // А вот это по ходу вообще не нужно.
+                // $byte_range_array = array_merge($byte_range_array, $byte_array);
+                
+                echo("\t\t\t\t\t\t\t\tdownloaded size:   " . sizeof($byte_array) . "\n");
+
                 # Update the total size of downloaded data
-                $totalDataDownloaded = $totalDataDownloaded + 1500;
+                // Вот здесь неправильно. Должно быть +1501.
+                // И похоже, что оно вообще не нужно.
+                // $totalDataDownloaded = $totalDataDownloaded + 1500;
 
                 # Assure that the pointer doesn't exceed size of downloaded bytes
                 while ($location < sizeof($byte_array)) {
+                    // location по умолчанию равен 1. Потому что это ассоциативный массив.
+                    echo("\t\t\t\t\t\t\t\tlocation:     " . $location . "\n");
                     $diff = sizeof($byte_array) - $location;
+                    echo("\t\t\t\t\t\t\t\tdiff:     " . $diff . "\n");
                     if ($diff < 3) {
                         //$prev_data = array_slice($byte_array, $location, $diff);
                         break;
                     } else {
+                        // Насколько я понял, здесь парсится первый бокс контейнера MP4. 
+                        echo("\t\t\t\t\t\t\t\tbyte_array[" . $location . "]: " . $byte_array[$location] . "\n");
+                        echo("\t\t\t\t\t\t\t\tbyte_array[" . ($location + 1) . "]: " . $byte_array[$location + 1] . "\n");
+                        echo("\t\t\t\t\t\t\t\tbyte_array[" . ($location + 2) . "]: " . $byte_array[$location + 2] . "\n");
+                        echo("\t\t\t\t\t\t\t\tbyte_array[" . ($location + 3) . "]: " . $byte_array[$location + 3] . "\n");
                         $box_size = $byte_array[$location] * 16777216 +
                                   $byte_array[$location + 1] * 65536 +
                                   $byte_array[$location + 2] * 256 +
                                   $byte_array[$location + 3];
+                        echo("\t\t\t\t\t\t\t\tcalculated box_size:     " . $box_size . "\n");
                     }
 
                     $size_copy = $box_size; // keep a copy of size to add to $location when it is replaced by remaining
@@ -198,6 +261,8 @@ function download_data($directory, $array_file, $is_subtitle_rep, $is_dolby)
                         $size_copy = $remaining;
                     }
 
+                    // Вот этот блок по идее нигде не нужен.
+                    /*
                     if ($segment_count === 1) { // if presentation contain only single segment
                         // total data being processed
                         $totaldownloaded += (!$hls_byte_range_begin) ? $box_size : $size_copy;
@@ -205,6 +270,7 @@ function download_data($directory, $array_file, $is_subtitle_rep, $is_dolby)
                     } else {
                         $percent = (int) (100 * $index / (sizeof($array_file) - 1)); // percent of remaining segments
                     }
+                    */
 
                     //get box name exist in the next 4 bytes from the bytes containing the size
                     $name = substr($content, $location + 3, 4);
@@ -230,7 +296,8 @@ function download_data($directory, $array_file, $is_subtitle_rep, $is_dolby)
                                 $sizepos,
                                 $sizepos + ((!$hls_byte_range_begin) ? $box_size : $size_copy) - 1
                             );
-                            $totalDataDownloaded += ((!$hls_byte_range_begin) ? $box_size : $size_copy) - 1;
+                            // По идее это не нужно.
+                            // $totalDataDownloaded += ((!$hls_byte_range_begin) ? $box_size : $size_copy) - 1;
                             fwrite($newfile, $rest);
                         }
                     } else {
@@ -304,10 +371,13 @@ function download_data($directory, $array_file, $is_subtitle_rep, $is_dolby)
 
                 # Modify node and sav it to a progress report
             }
+        
         }
+        
 
         $initoffset = (!$hls_byte_range_begin) ? $initoffset + $file_size : 0;
-        $totalDataProcessed = $totalDataProcessed + $totalDataDownloaded;
+        // По идее это не нужно.
+        // $totalDataProcessed = $totalDataProcessed + $totalDataDownloaded;
         $sizearray[] = $file_size;
 
         fflush($newfile);
@@ -373,9 +443,13 @@ function partial_download($url, &$ch, $begin = 0, $end = 0)
 
     # Temporary container for partial segments downloaded
     $temp_file = $session->getDir() . '//' . "getthefile.mp4";
+    // echo("Temp file: " . $temp_file . "\n");
     if (!($fp = fopen($temp_file, "w+"))) {
         exit;
     }
+
+    // echo("Begin: " . $begin . "\n");
+    // echo("End:   " . $end . "\n");
 
     # Add curl options and execute
     $options = array(
@@ -389,8 +463,15 @@ function partial_download($url, &$ch, $begin = 0, $end = 0)
         CURLOPT_FILE => $fp
     );
     curl_setopt_array($ch, $options);
+
+    curl_setopt($ch, CURLOPT_NOPROGRESS, false);
+
+    // https://curl.se/libcurl/c/CURLOPT_RANGE.html
+    // https://stackoverflow.com/questions/34458248/libcurl-easy-handle-curlopt-range-option-is-not-working
+    // The range option may be ignored by server. So we should not rely on it.
     if ($end != 0) {
         $range = $begin . '-' . $end;
+        // echo("Range:   " . $range . "\n");
         curl_setopt($ch, CURLOPT_RANGE, $range);
     }
 

@@ -79,13 +79,23 @@ function process_MPD($parseSegments = false, $autoDetect = false, $detailedSegme
 
     //------------------------------------------------------------------------//
     ## Perform Segment Validation for each representation in each adaptation set within the current period
+    // Ни один манифест из тех, что я видел, не содержит такой тег.
+    echo("Segments validation:\n");
     if ($mpdHandler->getDom()->getElementsByTagName('SegmentList')->length !== 0) {
         return;
     }
-    if ($mpdHandler->getFeatures()['type'] !== 'dynamic') {
-        $mpdHandler->selectPeriod(0);
-    }
+
+    // Не знаю, зачем здесь это. По дефолту выбранный период всегда 0.
+    // if ($mpdHandler->getFeatures()['type'] !== 'dynamic') {
+    //     echo("\tManifest type is static, so we select period 0\n");
+    //     $mpdHandler->selectPeriod(0);
+    // }
+
+    echo("\tThis manifest has " . sizeof($mpdHandler->getFeatures()['Period']) . " periods\n");
+    
     while ($mpdHandler->getSelectedPeriod() < sizeof($mpdHandler->getFeatures()['Period'])) {
+        echo("\tSelected period: " . $mpdHandler->getSelectedPeriod() . "\n");
+
         processAdaptationSetOfCurrentPeriod($detailedSegmentOutput);
 
         if ($logger->getModuleVerdict("HEALTH") == "FAIL") {
@@ -121,20 +131,30 @@ function processAdaptationSetOfCurrentPeriod($detailedSegmentOutput = true)
     global $logger;
 
     $adaptation_sets = $period['AdaptationSet'];
+
+    echo("\t\tThis period has " . sizeof($adaptation_sets) . " adaptation sets\n");
+
     while ($mpdHandler->getSelectedAdaptationSet() < sizeof($adaptation_sets)) {
+        echo("\t\t\tSelected adaptation set: " . $mpdHandler->getSelectedAdaptationSet() . "\n");
+
         if ($logger->getModuleVerdict("HEALTH") == "FAIL") {
             break;
         }
+
         $adaptation_set = $adaptation_sets[$mpdHandler->getSelectedAdaptationSet()];
         $representations = $adaptation_set['Representation'];
 
         $adaptationDirectory = $session->getSelectedAdaptationDir();
 
+        echo("\t\t\t\tThis adaptation set has " . sizeof($representations) . " representations\n");
 
         while ($mpdHandler->getSelectedRepresentation() < sizeof($representations)) {
+            echo("\t\t\t\t\tSelected representation: " . $mpdHandler->getSelectedRepresentation() . "\n");
+
             if ($logger->getModuleVerdict("HEALTH") == "FAIL") {
                 break;
             }
+
             $representation = $representations[$mpdHandler->getSelectedRepresentation()];
             $segment_url = $segment_urls[$mpdHandler->getSelectedAdaptationSet()]
             [$mpdHandler->getSelectedRepresentation()];
@@ -148,6 +168,11 @@ function processAdaptationSetOfCurrentPeriod($detailedSegmentOutput = true)
                     $module->hookBeforeRepresentation();
                 }
             }
+
+            // echo("\t\t\t\t\t\tArguments for validate_segment:\n");
+            // echo("\t\t\t\t\t\t\tadaptationDirectory:     " . $adaptationDirectory . "\n");
+            // echo("\t\t\t\t\t\t\trepresentationDirectory: " . $representationDirectory . "\n");
+            // echo("\t\t\t\t\t\t\tsegment_url:             " . var_export($segment_url, true) . "\n");
 
             validate_segment(
                 $adaptationDirectory,
